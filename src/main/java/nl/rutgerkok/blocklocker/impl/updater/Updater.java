@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonParser;
 
 import nl.rutgerkok.blocklocker.Translator;
 import nl.rutgerkok.blocklocker.impl.BlockLockerPluginImpl;
@@ -27,6 +28,8 @@ public final class Updater {
     private final BlockLockerPluginImpl plugin;
     private volatile UpdatePreference preference;
     private final Translator translator;
+    private UpdateChecker checker;
+    private boolean stopped;
 
     public Updater(UpdatePreference preference, Translator translator, BlockLockerPluginImpl plugin) {
         this.preference = Preconditions.checkNotNull(preference);
@@ -74,7 +77,8 @@ public final class Updater {
         }
     }
 
-    private void notifyServerFromServerThread(UpdateResult result) {
+    private synchronized void notifyServerFromServerThread(UpdateResult result) {
+        if (stopped) return;
         // Must be called from notifyServer
         // Result must have a notification
 
@@ -93,17 +97,26 @@ public final class Updater {
      * @throws IllegalStateException
      *             If this method was called earlier.
      */
-    public void startUpdater() {
+    public synchronized void startUpdater() {
         if (!preference.checkForUpdates()) {
             return;
         }
+        checker = new UpdateChecker(plugin);
         plugin.runTimerAsync(task -> {
-            if (preference.checkForUpdates()) {
-                updateSync();
-            } else {
-                task.cancel();
+            synchronized (Updater.this) {
+                if (!stopped && preference.checkForUpdates()) {
+                    checkForUpdates();
+                } else {
+                    task.cancel();
+                }
             }
         }, CHECK_INTERVAL);
+    }
+
+    /** Runs before the core closes the plugin JAR. Never waits for network I/O. */
+    public synchronized void stop() {
+        stopped = true;
+        if (checker != null) checker.close();
     }
 
     private void notifyUpdateAvailable(UpdateCheckResult result) throws IOException {
@@ -118,23 +131,22 @@ public final class Updater {
         }
     }
 
-    /**
-     * Blocking update method, must <b>not</b> be called from the server thread.
-     */
-    private void updateSync() {
-        try {
-            UpdateChecker checker = new UpdateChecker();
-            UpdateCheckResult result = checker.checkForUpdatesSync(plugin);
-            if (result.needsUpdate()) {
-                notifyUpdateAvailable(result);
-            } else {
-                notifyServer(new UpdateResult(Status.NO_UPDATE, result));
+    private void checkForUpdates() {
+        checker.checkForUpdates().whenComplete((response, failure) -> {
+            // Serialize completion with stop, including parsing and notification scheduling.
+            synchronized (Updater.this) {
+                if (stopped) return;
+                try {
+                    if (failure != null) throw new IOException("Update request failed", failure);
+                    if (response.statusCode() != 200) throw new IOException("HTTP " + response.statusCode());
+                    UpdateCheckResult result = new UpdateCheckResult(JsonParser.parseString(response.body()).getAsJsonObject());
+                    if (result.needsUpdate()) notifyUpdateAvailable(result);
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "Error during update check"
+                            + " (you can disable automatic updates in the config file)", e);
+                }
             }
-        } catch (IOException e) {
-            plugin.getLogger().log(Level.WARNING, "Error during update check"
-                    + " (you can disable automatic updates in the config file)", e);
-            notifyServer(UpdateResult.failed());
-        }
+        });
     }
 
 }

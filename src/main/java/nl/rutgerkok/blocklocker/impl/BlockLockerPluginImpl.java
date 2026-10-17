@@ -15,6 +15,9 @@ import nl.rutgerkok.blocklocker.*;
 import nl.rutgerkok.blocklocker.impl.event.*;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
+import org.bukkit.command.FormattedCommandAlias;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.help.GenericCommandHelpTopic;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.Event;
@@ -54,6 +57,7 @@ public class BlockLockerPluginImpl extends JavaPlugin implements BlockLockerPlug
     private CombinedLocationChecker combinedLocationChecker;
     private SchedulerSupport schedulerSupport;
     private ProtectionCache protectionCache;
+    private Updater updater;
 
     @Override
     public <E extends Event> E callEvent(E event) {
@@ -226,8 +230,25 @@ public class BlockLockerPluginImpl extends JavaPlugin implements BlockLockerPlug
         // Events
         registerEvents();
 
+        // Help outlives a PlugMan unload. Keep only a core-owned command with text,
+        // so help topics and their index copies cannot retain this plugin's loader.
+        PluginCommand command = getCommand(getName().toLowerCase(Locale.ROOT));
+        FormattedCommandAlias helpCommand = new FormattedCommandAlias(command.getName(), new String[0]);
+        helpCommand.setDescription(command.getDescription());
+        helpCommand.setUsage(command.getUsage());
+        helpCommand.setPermission(command.getPermission());
+        helpCommand.setAliases(command.getAliases());
+        helpCommand.register(getServer().getCommandMap()); // Visibility only; no command route inserted.
+        getServer().getHelpMap().addTopic(new GenericCommandHelpTopic(helpCommand));
+
         // Updater
-        new Updater(config.getUpdatePreference(), translator, this).startUpdater();
+        updater = new Updater(config.getUpdatePreference(), translator, this);
+        updater.startUpdater();
+    }
+
+    @Override
+    public void onDisable() {
+        if (updater != null) updater.stop();
     }
 
     /**

@@ -1,51 +1,46 @@
 package nl.rutgerkok.blocklocker.impl.updater;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.net.URLEncoder;
-
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import org.bukkit.plugin.Plugin;
 
-import com.google.common.base.Charsets;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+/** Owns the cancellable request; only JDK code reads the network response body. */
+final class UpdateChecker implements AutoCloseable {
+    private final HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NORMAL).build();
+    private final HttpRequest request;
+    private CompletableFuture<HttpResponse<String>> pending;
+    private boolean closed;
 
-/**
- * Checks whether an update is available.
- *
- */
-final class UpdateChecker {
+    UpdateChecker(Plugin plugin) {
+        this(URI.create("https://rutgerkok.nl/tools/updater/blocklocker.php?version="
+                + URLEncoder.encode(plugin.getDescription().getVersion(), StandardCharsets.UTF_8)),
+                UserAgent.forPlugin(plugin));
+    }
 
-    private static final String UPDATE_URL = "https://rutgerkok.nl/tools/updater/blocklocker.php";
+    UpdateChecker(URI uri, String userAgent) {
+        request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json").header("User-Agent", userAgent).GET().build();
+    }
 
-    /**
-     * Checks online for updates. Blocking method.
-     *
-     * @param plugin
-     *            Plugin to check for.
-     * @return The update result.
-     * @throws IOException
-     *             If an IO error occurs.
-     */
-    public UpdateCheckResult checkForUpdatesSync(Plugin plugin) throws IOException {
-        String currentVersionEncoded = URLEncoder.encode(plugin.getDescription().getVersion(), "UTF-8");
-        URL url = new URL(UPDATE_URL + "?version=" + currentVersionEncoded);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-        connection.setRequestProperty("Content-Type", "application/json");
-        UserAgent.setFor(plugin, connection);
-
-        try (InputStream stream = connection.getInputStream()) {
-            JsonObject object = JsonParser.parseReader(new InputStreamReader(stream, Charsets.UTF_8)).getAsJsonObject();
-            return new UpdateCheckResult(object);
-        } catch (IOException e) {
-            // Just rethrow, don't wrap
-            throw e;
-        } catch (Exception e) {
-            throw new IOException(e);
+    synchronized CompletableFuture<HttpResponse<String>> checkForUpdates() {
+        if (closed) throw new IllegalStateException("Update checker has stopped");
+        if (pending == null || pending.isDone()) {
+            pending = client.sendAsync(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         }
+        return pending;
+    }
+
+    @Override
+    public synchronized void close() {
+        closed = true;
+        if (pending != null) pending.cancel(true);
+        client.shutdownNow();
     }
 }
