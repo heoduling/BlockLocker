@@ -28,10 +28,7 @@
 # too. Danke schön, gracias, dankon and спасибо!
 languageFile: translations-en.yml
 
-# The updater. Possible values:
-# JUST_NOTIFY - check for updates, notify the server admins
-# DISABLED - don't check for updates
-updater: JUST_NOTIFY
+# This fork is updated manually. The old updater setting is ignored.
 
 # All types of containers that can be protected.
 # You can add tags here too, like "#minecraft:wooden_shelves" or "#minecraft:shulker_boxes". For YAML-reasons,

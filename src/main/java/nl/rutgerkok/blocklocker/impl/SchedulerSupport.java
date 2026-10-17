@@ -2,11 +2,8 @@ package nl.rutgerkok.blocklocker.impl;
 
 import org.bukkit.block.Block;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 /**
  * Code to support both the standard schedulers of Bukkit, and Folia's scheduler.
@@ -60,42 +57,4 @@ final class SchedulerSupport {
         }
     }
 
-    void runTimerAsync(Consumer<BukkitTask> task, long checkInterval) {
-        if (folia) {
-            plugin.getServer().getAsyncScheduler().runAtFixedRate(plugin, foliaTask -> {
-                task.accept(new BukkitTask() {
-
-                    @Override
-                    public void cancel() {
-                        foliaTask.cancel();
-                    }
-
-                    @Override
-                    public Plugin getOwner() {
-                        return foliaTask.getOwningPlugin();
-                    }
-
-                    @Override
-                    public int getTaskId() {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public boolean isCancelled() {
-                        return foliaTask.isCancelled();
-                    }
-
-                    @Override
-                    public boolean isSync() {
-                        return false;
-                    }
-                });
-            }, 1, checkInterval * 50, TimeUnit.MILLISECONDS);
-        } else {
-            BukkitTask[] bukkitTask = new BukkitTask[1];
-            bukkitTask[0] = plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-                task.accept(bukkitTask[0]);
-            }, 1, checkInterval);
-        }
-    }
 }

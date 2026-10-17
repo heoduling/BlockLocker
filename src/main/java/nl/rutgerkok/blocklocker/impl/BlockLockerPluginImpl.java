@@ -8,7 +8,6 @@ import java.io.Reader;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 
 import nl.rutgerkok.blocklocker.*;
@@ -23,7 +22,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.Event;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -40,7 +38,6 @@ import nl.rutgerkok.blocklocker.impl.group.TownyGroupSystem;
 import nl.rutgerkok.blocklocker.impl.group.mcMMOGroupSystem;
 import nl.rutgerkok.blocklocker.impl.location.TownyLocationChecker;
 import nl.rutgerkok.blocklocker.impl.profile.ProfileFactoryImpl;
-import nl.rutgerkok.blocklocker.impl.updater.Updater;
 import nl.rutgerkok.blocklocker.location.CombinedLocationChecker;
 import nl.rutgerkok.blocklocker.location.LocationChecker;
 
@@ -57,7 +54,6 @@ public class BlockLockerPluginImpl extends JavaPlugin implements BlockLockerPlug
     private CombinedLocationChecker combinedLocationChecker;
     private SchedulerSupport schedulerSupport;
     private ProtectionCache protectionCache;
-    private Updater updater;
 
     @Override
     public <E extends Event> E callEvent(E event) {
@@ -240,15 +236,6 @@ public class BlockLockerPluginImpl extends JavaPlugin implements BlockLockerPlug
         helpCommand.setAliases(command.getAliases());
         helpCommand.register(getServer().getCommandMap()); // Visibility only; no command route inserted.
         getServer().getHelpMap().addTopic(new GenericCommandHelpTopic(helpCommand));
-
-        // Updater
-        updater = new Updater(config.getUpdatePreference(), translator, this);
-        updater.startUpdater();
-    }
-
-    @Override
-    public void onDisable() {
-        if (updater != null) updater.stop();
     }
 
     /**
@@ -303,18 +290,6 @@ public class BlockLockerPluginImpl extends JavaPlugin implements BlockLockerPlug
     @Override
     public void runLaterGlobally(Runnable runnable, int ticks) {
         schedulerSupport.runLaterGlobally(runnable, ticks);
-    }
-
-    /**
-     * Folia-compatible alternative for running a timer task asynchronously.
-     *
-     * @param task
-     *            The task.
-     * @param checkInterval
-     *            The check interval in ticks.
-     */
-    public void runTimerAsync(Consumer<BukkitTask> task, long checkInterval) {
-        schedulerSupport.runTimerAsync(task, checkInterval);
     }
 
 }

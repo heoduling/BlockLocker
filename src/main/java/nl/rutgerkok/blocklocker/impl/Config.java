@@ -15,7 +15,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 import nl.rutgerkok.blocklocker.AttackType;
 import nl.rutgerkok.blocklocker.ProtectionType;
-import nl.rutgerkok.blocklocker.impl.updater.UpdatePreference;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -29,7 +28,6 @@ final class Config {
                 PROTECTABLE_TRAP_DOORS = "protectableTrapDoors",
                 PROTECTABLE_ATTACHABLES = "protectableAttachables",
                 DEFAULT_DOOR_OPEN_SECONDS = "defaultDoorOpenSeconds",
-                UPDATER = "updater",
                 CONNECT_CONTAINERS = "connectContainers",
                 AUTO_EXPIRE_DAYS = "autoExpireDays",
                 ALLOW_DESTROY_BY = "allowDestroyBy",
@@ -49,7 +47,6 @@ final class Config {
      * Combination of the sets of all individual protection types.
      */
     private final Set<Material> protectableMaterialsSet;
-    private final UpdatePreference updatePreference;
 
     Config(Plugin plugin) {
         FileConfiguration config = plugin.getConfig();
@@ -57,7 +54,6 @@ final class Config {
 
         languageFile = config.getString(Key.LANGUAGE_FILE, DEFAULT_TRANSLATIONS_FILE);
         defaultDoorOpenSeconds = config.getInt(Key.DEFAULT_DOOR_OPEN_SECONDS, 0);
-        updatePreference = readUpdatePreference(config.getString(Key.UPDATER));
         connectContainers = config.getBoolean(Key.CONNECT_CONTAINERS);
         autoExpireDays = config.getInt(Key.AUTO_EXPIRE_DAYS);
         allowDestroyBy = readAttackTypeSet(config.getStringList(Key.ALLOW_DESTROY_BY));
@@ -104,7 +100,6 @@ final class Config {
     private void writeToConfig(FileConfiguration config) {
         config.set(Key.LANGUAGE_FILE, this.languageFile);
         config.set(Key.DEFAULT_DOOR_OPEN_SECONDS, this.defaultDoorOpenSeconds);
-        config.set(Key.UPDATER, this.updatePreference.toString());
         config.set(Key.CONNECT_CONTAINERS, this.connectContainers);
         config.set(Key.AUTO_EXPIRE_DAYS, this.autoExpireDays);
         config.set(Key.ALLOW_DESTROY_BY, this.allowDestroyBy.stream().map(AttackType::toString).toList());
@@ -207,15 +202,6 @@ final class Config {
         return languageFile;
     }
 
-    /**
-     * Gets the update preference.
-     *
-     * @return The update preference.
-     */
-    UpdatePreference getUpdatePreference() {
-        return updatePreference;
-    }
-
     private Set<AttackType> readAttackTypeSet(List<String> strings) {
         Set<AttackType> materials = EnumSet.noneOf(AttackType.class);
         for (String string : strings) {
@@ -270,13 +256,4 @@ final class Config {
         return materialSet;
     }
 
-    private UpdatePreference readUpdatePreference(String string) {
-        Optional<UpdatePreference> updatePreference = UpdatePreference.parse(string);
-        if (updatePreference.isPresent()) {
-            return updatePreference.get();
-        } else {
-            logger.warning("Unknown update setting: " + string + ". Disabling automatic updater.");
-            return UpdatePreference.DISABLED;
-        }
-    }
 }
