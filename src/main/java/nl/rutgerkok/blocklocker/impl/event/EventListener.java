@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.apache.commons.lang.Validate;
 import org.bukkit.block.Block;
+import org.bukkit.Location;
 import org.bukkit.event.Listener;
 
 import nl.rutgerkok.blocklocker.ProtectionCache;
@@ -49,15 +50,30 @@ abstract class EventListener implements Listener {
         if (flag != ProtectionCache.CacheFlag.MISS_CACHE) {
             return flag == ProtectionCache.CacheFlag.NOT_ALLOWED;
         } else {
-            Optional<Protection> protection = plugin.getProtectionFinder().findProtection(block, SearchMode.MAIN_BLOCKS_ONLY);
-            if (protection.isEmpty()) {
-                plugin.getProtectionCache().setAllowed(block, ProtectionCache.CacheType.REDSTONE,true);
-                return false;
-            }
-            Profile redstone = plugin.getProfileFactory().fromRedstone();
-            boolean allowed = protection.get().isAllowed(redstone);
-            plugin.getProtectionCache().setAllowed(block, ProtectionCache.CacheType.REDSTONE, allowed);
-            return !allowed;
+            return isRedstoneDeniedUncached(block);
         }
+    }
+
+    boolean isRedstoneDenied(Location location) {
+        if (location == null) {
+            return false;
+        }
+        ProtectionCache.CacheFlag flag = plugin.getProtectionCache().getAllowedAt(location, ProtectionCache.CacheType.REDSTONE);
+        if (flag != ProtectionCache.CacheFlag.MISS_CACHE) {
+            return flag == ProtectionCache.CacheFlag.NOT_ALLOWED;
+        }
+        return isRedstoneDeniedUncached(location.getBlock());
+    }
+
+    private boolean isRedstoneDeniedUncached(Block block) {
+        Optional<Protection> protection = plugin.getProtectionFinder().findProtection(block, SearchMode.MAIN_BLOCKS_ONLY);
+        if (protection.isEmpty()) {
+            plugin.getProtectionCache().setAllowed(block, ProtectionCache.CacheType.REDSTONE, true);
+            return false;
+        }
+        Profile redstone = plugin.getProfileFactory().fromRedstone();
+        boolean allowed = protection.get().isAllowed(redstone);
+        plugin.getProtectionCache().setAllowed(block, ProtectionCache.CacheType.REDSTONE, allowed);
+        return !allowed;
     }
 }

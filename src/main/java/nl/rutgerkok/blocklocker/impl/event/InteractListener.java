@@ -123,23 +123,6 @@ public final class InteractListener extends EventListener {
         return allowed;
     }
 
-    /**
-     * Gets the block the inventory is currently positioned at. Note: even for
-     * inventories in entities, this will return a block.
-     *
-     * @param inventory
-     *            The inventory.
-     * @return The block, or null if the inventory doesn't have a location (only
-     *         custom inventories as far as I know).
-     */
-    private Block getInventoryBlockOrNull(Inventory inventory) {
-        Location location = inventory.getLocation();
-        if (location == null) {
-            return null;
-        }
-        return location.getBlock();
-    }
-
     private org.bukkit.block.data.type.Sign getRotatedSignPost(Player player, Material signMaterial) {
         float rotation = player.getLocation().getYaw();
         if (rotation < 0) {
@@ -297,19 +280,9 @@ public final class InteractListener extends EventListener {
 
     @EventHandler(ignoreCancelled = true)
     public void onInventoryMoveItemEvent(InventoryMoveItemEvent event) {
-        Block from = getInventoryBlockOrNull(event.getSource());
-        if (from != null) {
-            if (isRedstoneDenied(from)) {
-                event.setCancelled(true);
-                return;
-            }
-        }
-        Block to = getInventoryBlockOrNull(event.getDestination());
-        if (to != null) {
-            if (isRedstoneDenied(to)) {
-                event.setCancelled(true);
-                return;
-            }
+        if (isRedstoneDenied(event.getSource().getLocation())
+                || isRedstoneDenied(event.getDestination().getLocation())) {
+            event.setCancelled(true);
         }
     }
 

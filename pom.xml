@@ -15,6 +15,10 @@
     </properties>
     <repositories>
         <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2/</url>
+        </repository>
+        <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
@@ -28,6 +32,16 @@
         </repository>
     </repositories>
     <dependencies>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.2.4</version>
+            <!-- Caffeine's static-analysis annotations are not runtime dependencies. -->
+            <exclusions>
+                <exclusion><groupId>org.jspecify</groupId><artifactId>jspecify</artifactId></exclusion>
+                <exclusion><groupId>com.google.errorprone</groupId><artifactId>error_prone_annotations</artifactId></exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
@@ -92,6 +106,7 @@
         </dependency>
     </dependencies>
     <build>
+        <finalName>BlockLocker-1.15-4</finalName>
         <!-- Define filtering for the inclusion of plugin.yml, so we can utilize 
 			the pom.xml version in it -->
         <resources>
@@ -106,6 +121,42 @@
         </resources>
         <!-- Make sure our plugin is not remapped -->
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes><include>com.github.ben-manes.caffeine:caffeine</include></includes>
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.github.benmanes.caffeine</pattern>
+                                    <shadedPattern>nl.rutgerkok.blocklocker.internal.caffeine</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/INDEX.LIST</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/**/module-info.class</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
